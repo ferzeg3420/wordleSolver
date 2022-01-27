@@ -307,12 +307,12 @@ main() {
         fi
         getGuessResultsFromUser
         processResults
-        #echo "INCLUDED: $INCLUDED"
-        #echo "EXCLUDED: $EXCLUDED"
-        #echo "LETTERS_IN_POS_TO_EXCLUDE: $LETTERS_IN_POS_TO_EXCLUDE"
-        #echo "POSITION_STRING: $POSITION_STRING"
+        echo "INCLUDED: $INCLUDED"
+        echo "EXCLUDED: $EXCLUDED"
+        echo "LETTERS_IN_POS_TO_EXCLUDE: $LETTERS_IN_POS_TO_EXCLUDE"
+        echo "POSITION_STRING: $POSITION_STRING"
         narrowDictionary
-        #less "$DICTIONARY"
+        less "$DICTIONARY"
     done
 }
 main
