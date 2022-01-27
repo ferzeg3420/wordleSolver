@@ -253,7 +253,6 @@ decideWhatToDo() {
     THREE_QUARTERS_NUM_LETTERS=$(echo "${NUM_LETTERS} * 0.75" | bc | sed 's/\..*$//')
     if test "$NUM_INCL" -ge "$THREE_QUARTERS_NUM_LETTERS" && test "$GUESS_NUMBER" -ge 3
     then
-        # Give user next guess.
         echo "Try: $(head -1 "$DICTIONARY")"
         return 0
     fi
@@ -307,12 +306,7 @@ main() {
         fi
         getGuessResultsFromUser
         processResults
-        #echo "INCLUDED: $INCLUDED"
-        #echo "EXCLUDED: $EXCLUDED"
-        #echo "LETTERS_IN_POS_TO_EXCLUDE: $LETTERS_IN_POS_TO_EXCLUDE"
-        #echo "POSITION_STRING: $POSITION_STRING"
         narrowDictionary
-        #less "$DICTIONARY"
     done
 }
 main
