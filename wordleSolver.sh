@@ -16,20 +16,6 @@ generateLettersInPosToExlude() {
     printf "\n"
 }
 
-pressEnterToContinue() {
-    printf "\npress enter to continue\n"
-    read -r 
-}
-
-getInputToSolveWordle() {
-    echo "What letters are yellow (included in the word but the position is unknown)?"    
-    read -r INCLUDED
-    echo "What letters are grey (not part of the word)?"    
-    read -r EXCLUDED
-    echo "What letters are green [format: _a_] (empty if none)?"    
-    read -r POSITION_STRING
-}
-
 filterOutLettersNotInThisPosition() {
         tr '[:upper:]' '[:lower:]' < "$TEMP_DICT" \
             | sed 's/[[:space:]]*$//'          \
@@ -58,28 +44,14 @@ generateGoodGuesses() {
     | awk -v targetLength="$NUM_LETTERS" -v prevGuesses="$PREV_GUESSES" -f generateGoodGuess.awk
 }
 
-getNumberOfLetters() {
-    while true
-    do
-        printf "Number of letters (4-12): "
-        read -r NUM_LETTERS
-        if echo "$NUM_LETTERS" | grep '^\([4-9]\|1[0-2]\)$' 1>/dev/null
-        then
-            break
-        fi
-    done
-}
-
 displayGuessToTryDialog() {
     GUESS_TO_TRY="$(generateGoodGuesses)"
-    printf "try: %s\n" "$GUESS_TO_TRY"
     PREV_GUESSES="$PREV_GUESSES $GUESS_TO_TRY"
-    pressEnterToContinue
 }
 
-getGuessResultsFromUser() {
-    printf "Type the results (G before green letters, Y before yellow letters, and nothing before grey. Type a single N if the word is not in wordle's dictionary):"
-    read -r GUESS_RESULTS_FROM_USER
+getGuessResults() {
+    solution="$1"
+    GUESS_RESULTS="$(awk -v solution="$solution" -v guess="$GUESS_TO_TRY" -f getGuessResults.awk)"
 }
 
 addCorrectLetterToPosString() {
@@ -166,7 +138,7 @@ removePreviousGuess() {
 }
 
 processResults() {
-    if expr "$GUESS_RESULTS_FROM_USER" : '^[Nn]$' >/dev/null
+    if expr "$GUESS_RESULTS" : '^[Nn]$' >/dev/null
     then
         excludeNonExistentWordFromDictionaries "$GUESS_TO_TRY"
         removePreviousGuess
@@ -175,7 +147,7 @@ processResults() {
     HINT_TYPE="excludedLetter"
     LETTER_POS=1
     GUESS_NUMBER=$((GUESS_NUMBER + 1))
-    for c in $(echo "$GUESS_RESULTS_FROM_USER" | fold -w 1)
+    for c in $(echo "$GUESS_RESULTS" | fold -w 1)
     do
         if test "$c" = "G"
         then
@@ -229,7 +201,7 @@ decideWhatToDo() {
     fi
 
     # if lonely q or Q, then exit
-    if expr "$GUESS_RESULTS_FROM_USER" : '^[Qq]$' >/dev/null
+    if expr "$GUESS_RESULTS" : '^[Qq]$' >/dev/null
     then
         return 1
     fi
@@ -237,14 +209,13 @@ decideWhatToDo() {
     # if there's only one element in the solved list, make that guess, and break.
     if test "$(grep -c '.*' "$DICTIONARY")" -eq 1
     then
-        echo "The solution is: $(head -1 "$DICTIONARY")"
+        SOLVED=0
         return 1
     fi
 
     # if there's zero elements in the solved list, inform user, and break
     if test "$(grep -c '.*' "$DICTIONARY")" -eq 0
     then
-        echo "Sorry, that word doesn't appear to be in my dictionary"
         return 1
     fi
 
@@ -253,23 +224,20 @@ decideWhatToDo() {
     THREE_QUARTERS_NUM_LETTERS=$(echo "${NUM_LETTERS} * 0.75" | bc | sed 's/\..*$//')
     if test "$NUM_INCL" -ge "$THREE_QUARTERS_NUM_LETTERS" && test "$GUESS_NUMBER" -ge 3
     then
-        echo "Try: $(head -1 "$DICTIONARY")"
+        GUESS_TO_TRY="$(head -1 "$DICTIONARY")"
         return 0
     fi
 
-    # If the solved list is equal to, or less than, the number of remaining guesses, tell the user to make those guesses and exit.
+    # If the solved list is equal to, or less than, the number of remaining guesses, make each of those guesses 
     if test "$(grep -c '.*' "$DICTIONARY")" -le "$(( 6 - GUESS_NUMBER ))"
     then
-        echo "Try each of these:"
-        cat "$DICTIONARY"
-        return 1
+        GUESS_TO_TRY="$(head -1 "$DICTIONARY")"
+        return 0
     fi
 
     # If Last guess, then show possible guesses to user, then break.
     if test "$GUESS_NUMBER" = 6
     then
-        echo "Sorry, I've failed you, but the solution is one of these:"
-        cat "$DICTIONARY"
         return 1
     fi
 
@@ -278,6 +246,18 @@ decideWhatToDo() {
     return 0
 
 }
+
+resetVars() {
+    GUESS_NUMBER=1
+    POSITION_STRING=""
+    INCLUDED=""
+    EXCLUDED=""
+    LETTERS_IN_POS_TO_EXCLUDE=""
+    SOLVED=1
+    cat words.txt > "$DICTIONARY"
+    cat words.txt > "$WORDS"
+}
+SOLVED=1
 
 GUESS_NUMBER=1
 POSITION_STRING=""
@@ -291,22 +271,37 @@ cat words.txt > "$DICTIONARY"
 cat words.txt > "$WORDS"
 
 main() {
-    getNumberOfLetters
     POSITION_STRING=$(generatePositionString)
     LETTERS_IN_POS_TO_EXCLUDE=$(generateLettersInPosToExlude)
 
     PREV_GUESSES=""
 
-    while true
+    while read -r wordToGuess
     do
-        decideWhatToDo
-        if test $? = 1
+        chompedWordToGuess="$(echo $wordToGuess | tr 'A-Z' 'a-z' | sed "s/[[:space:]]//g")"
+        NUM_LETTERS=$(awk -v toGuess="$chompedWordToGuess" 'BEGIN{print length(toGuess)}')
+        # Solver
+        while true
+        do
+            decideWhatToDo
+            if test $? = 1
+            then
+                break
+            fi
+            getGuessResults "$chompedWordToGuess"
+            processResults
+            narrowDictionary
+        done
+
+        # Analytics
+        if test "$SOLVED" -eq 1
         then
-            break
+            echo "${wordToGuess} $GUESS_NUMBER" >> unsolved.out
+        else
+            echo "$wordToGuess $GUESS_NUMBER" >> solved.out
         fi
-        getGuessResultsFromUser
-        processResults
-        narrowDictionary
-    done
+        
+        resetVars
+    done < words.txt
 }
 main

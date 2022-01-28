@@ -1,1 +1,1 @@
-I don't know yet
+Check how I'm solving repeated letters in the guess results reported by the user. It may be that I made a mistake if a letter is set to green and it's later set to grey. I should make sure that it isn't put in the excluded list.
