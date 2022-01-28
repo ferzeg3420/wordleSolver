@@ -21,15 +21,6 @@ pressEnterToContinue() {
     read -r 
 }
 
-getInputToSolveWordle() {
-    echo "What letters are yellow (included in the word but the position is unknown)?"    
-    read -r INCLUDED
-    echo "What letters are grey (not part of the word)?"    
-    read -r EXCLUDED
-    echo "What letters are green [format: _a_] (empty if none)?"    
-    read -r POSITION_STRING
-}
-
 filterOutLettersNotInThisPosition() {
         tr '[:upper:]' '[:lower:]' < "$TEMP_DICT" \
             | sed 's/[[:space:]]*$//'          \
