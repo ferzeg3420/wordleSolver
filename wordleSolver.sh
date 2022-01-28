@@ -270,6 +270,10 @@ TEMP_DICT=$(mktemp)
 cat words.txt > "$DICTIONARY"
 cat words.txt > "$WORDS"
 
+#Reset/create the files used for reporting results
+printf "" > unsolved.out
+printf "" > solved.out
+
 main() {
     POSITION_STRING=$(generatePositionString)
     LETTERS_IN_POS_TO_EXCLUDE=$(generateLettersInPosToExlude)
@@ -278,7 +282,7 @@ main() {
 
     while read -r wordToGuess
     do
-        chompedWordToGuess="$(echo $wordToGuess | tr 'A-Z' 'a-z' | sed "s/[[:space:]]//g")"
+        chompedWordToGuess="$(echo "$wordToGuess" | tr 'A-Z' 'a-z' | sed "s/[[:space:]]//g")"
         NUM_LETTERS=$(awk -v toGuess="$chompedWordToGuess" 'BEGIN{print length(toGuess)}')
         # Solver
         while true
