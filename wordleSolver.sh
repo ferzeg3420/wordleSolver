@@ -194,12 +194,6 @@ narrowDictionary() {
 }
 
 decideWhatToDo() {
-    if test "$GUESS_NUMBER" = 1
-    then
-        displayGuessToTryDialog
-        return 0
-    fi
-
     # if lonely q or Q, then exit
     if expr "$GUESS_RESULTS" : '^[Qq]$' >/dev/null
     then
@@ -219,6 +213,18 @@ decideWhatToDo() {
         return 1
     fi
 
+    # If Last guess, then show possible guesses to user, then break.
+    if test "$GUESS_NUMBER" = 6
+    then
+        return 1
+    fi
+
+    if test "$GUESS_NUMBER" = 1
+    then
+        displayGuessToTryDialog
+        return 0
+    fi
+
     # If the included letters >= (75 % of num letters), then start making guesses from the solved list.
     NUM_INCL="$(awk -v incl="$INCLUDED" 'BEGIN{print length(incl)}')"
     THREE_QUARTERS_NUM_LETTERS=$(echo "${NUM_LETTERS} * 0.75" | bc | sed 's/\..*$//')
@@ -235,12 +241,6 @@ decideWhatToDo() {
         return 0
     fi
 
-    # If Last guess, then show possible guesses to user, then break.
-    if test "$GUESS_NUMBER" = 6
-    then
-        return 1
-    fi
-
     # else keep generating good guesses
     displayGuessToTryDialog
     return 0
@@ -248,6 +248,9 @@ decideWhatToDo() {
 }
 
 resetVars() {
+    POSITION_STRING=$(generatePositionString)
+    LETTERS_IN_POS_TO_EXCLUDE=$(generateLettersInPosToExlude)
+    PREV_GUESSES=""
     GUESS_NUMBER=1
     POSITION_STRING=""
     INCLUDED=""
@@ -275,15 +278,14 @@ printf "" > unsolved.out
 printf "" > solved.out
 
 main() {
-    POSITION_STRING=$(generatePositionString)
-    LETTERS_IN_POS_TO_EXCLUDE=$(generateLettersInPosToExlude)
-
-    PREV_GUESSES=""
 
     while read -r wordToGuess
     do
-        chompedWordToGuess="$(echo "$wordToGuess" | tr 'A-Z' 'a-z' | sed "s/[[:space:]]//g")"
+        echo "... GUESSING: $wordToGuess"
         NUM_LETTERS=$(awk -v toGuess="$chompedWordToGuess" 'BEGIN{print length(toGuess)}')
+        chompedWordToGuess="$(echo "$wordToGuess" | tr 'A-Z' 'a-z' | sed "s/[[:space:]]//g")"
+        resetVars
+
         # Solver
         while true
         do
@@ -295,17 +297,20 @@ main() {
             getGuessResults "$chompedWordToGuess"
             processResults
             narrowDictionary
+            echo "... guess number: $GUESS_NUMBER"
         done
 
         # Analytics
         if test "$SOLVED" -eq 1
         then
+            echo "... $wordToGuess solved in $GUESS_NUMBER tries"
             echo "${wordToGuess} $GUESS_NUMBER" >> unsolved.out
         else
+            echo "... $wordToGuess not solvable"
             echo "$wordToGuess $GUESS_NUMBER" >> solved.out
         fi
+        echo
         
-        resetVars
     done < words.txt
 }
 main
