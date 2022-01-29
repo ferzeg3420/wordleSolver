@@ -213,12 +213,6 @@ narrowDictionary() {
 }
 
 decideWhatToDo() {
-    if test "$GUESS_NUMBER" = 1
-    then
-        displayGuessToTryDialog
-        return 0
-    fi
-
     # if lonely q or Q, then exit
     if expr "$GUESS_RESULTS_FROM_USER" : '^[Qq]$' >/dev/null
     then
@@ -239,13 +233,12 @@ decideWhatToDo() {
         return 1
     fi
 
-    # If the included letters >= (75 % of num letters), then start making guesses from the solved list.
-    NUM_INCL="$(awk -v incl="$INCLUDED" 'BEGIN{print length(incl)}')"
-    THREE_QUARTERS_NUM_LETTERS=$(echo "${NUM_LETTERS} * 0.75" | bc | sed 's/\..*$//')
-    if test "$NUM_INCL" -ge "$THREE_QUARTERS_NUM_LETTERS" && test "$GUESS_NUMBER" -ge 3
+    # If Last guess, then show possible guesses to user, then break.
+    if test "$GUESS_NUMBER" = 6
     then
-        echo "Try: $(head -1 "$DICTIONARY")"
-        return 0
+        echo "Sorry, I've failed you, but the solution is one of these:"
+        cat "$DICTIONARY"
+        return 1
     fi
 
     # If the solved list is equal to, or less than, the number of remaining guesses, tell the user to make those guesses and exit.
@@ -256,13 +249,21 @@ decideWhatToDo() {
         return 1
     fi
 
-    # If Last guess, then show possible guesses to user, then break.
-    if test "$GUESS_NUMBER" = 6
+    if test "$GUESS_NUMBER" = 1
     then
-        echo "Sorry, I've failed you, but the solution is one of these:"
-        cat "$DICTIONARY"
-        return 1
+        displayGuessToTryDialog
+        return 0
     fi
+
+    # If the included letters >= (75 % of num letters), then start making guesses from the solved list.
+    NUM_INCL="$(awk -v incl="$INCLUDED" 'BEGIN{print length(incl)}')"
+    THREE_QUARTERS_NUM_LETTERS=$(echo "${NUM_LETTERS} * 0.75" | bc | sed 's/\..*$//')
+    if test "$NUM_INCL" -ge "$THREE_QUARTERS_NUM_LETTERS" && test "$GUESS_NUMBER" -ge 3
+    then
+        echo "Try: $(head -1 "$DICTIONARY")"
+        return 0
+    fi
+
 
     # else keep generating good guesses
     displayGuessToTryDialog
