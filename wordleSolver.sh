@@ -203,6 +203,7 @@ decideWhatToDo() {
     # if there's only one element in the solved list, make that guess, and break.
     if test "$(grep -c '.*' "$DICTIONARY")" -eq 1
     then
+        echo "SOLVED!"
         SOLVED=0
         return 1
     fi
@@ -210,13 +211,22 @@ decideWhatToDo() {
     # if there's zero elements in the solved list, inform user, and break
     if test "$(grep -c '.*' "$DICTIONARY")" -eq 0
     then
+        echo "unsolved!"
         return 1
     fi
 
-    # If Last guess, then show possible guesses to user, then break.
+    # Not enough guesses
+    if test "$GUESS_NUMBER" = 7
+    then
+        echo "unsolved!"
+        return 1
+    fi
+
+    # If Last guess, then show first possible guess
     if test "$GUESS_NUMBER" = 6
     then
-        return 1
+        GUESS_TO_TRY="$(head -1 "$DICTIONARY")"
+        return 0
     fi
 
     if test "$GUESS_NUMBER" = 1
@@ -260,7 +270,6 @@ resetVars() {
     cat words.txt > "$DICTIONARY"
     cat words.txt > "$WORDS"
 }
-SOLVED=1
 
 GUESS_NUMBER=1
 POSITION_STRING=""
@@ -281,9 +290,22 @@ main() {
 
     while read -r wordToGuess
     do
-        echo "... GUESSING: $wordToGuess"
+        chompedWordToGuess="$(echo "$wordToGuess" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed "s/[[:space:]]//g")"
         NUM_LETTERS=$(awk -v toGuess="$chompedWordToGuess" 'BEGIN{print length(toGuess)}')
-        chompedWordToGuess="$(echo "$wordToGuess" | tr 'A-Z' 'a-z' | sed "s/[[:space:]]//g")"
+        if test "$NUM_LETTERS" -lt 4 || test "$NUM_LETTERS" -gt 13
+        then
+            echo "... skipping: $wordToGuess"
+            continue
+        fi
+        if ! expr "$chompedWordToGuess" : '^[a-z][a-z]*$' 1>/dev/null
+        then
+            echo "... skipping: $wordToGuess"
+            continue
+        fi
+
+        echo "... GUESSING: $wordToGuess"
         resetVars
 
         # Solver
@@ -301,13 +323,13 @@ main() {
         done
 
         # Analytics
-        if test "$SOLVED" -eq 1
+        if test "$SOLVED" -eq 0
         then
             echo "... $wordToGuess solved in $GUESS_NUMBER tries"
-            echo "${wordToGuess} $GUESS_NUMBER" >> unsolved.out
+            echo "${wordToGuess} $GUESS_NUMBER" >> solved.out
         else
             echo "... $wordToGuess not solvable"
-            echo "$wordToGuess $GUESS_NUMBER" >> solved.out
+            echo "$wordToGuess $GUESS_NUMBER" >> unsolved.out
         fi
         echo
         
