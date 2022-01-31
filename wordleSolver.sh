@@ -146,7 +146,7 @@ processResults() {
     fi
     HINT_TYPE="excludedLetter"
     LETTER_POS=1
-    GUESS_NUMBER=$((GUESS_NUMBER + 1))
+    #GUESS_NUMBER=$((GUESS_NUMBER + 1))
     for c in $(echo "$GUESS_RESULTS" | fold -w 1)
     do
         if test "$c" = "G"
@@ -257,15 +257,26 @@ decideWhatToDo() {
 
 }
 
+showVariables() {
+    echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+    echo "POSITION_STRING" "$POSITION_STRING"
+    echo "LETTERS_IN_POS_TO_EXCLUDE" "$LETTERS_IN_POS_TO_EXCLUDE"
+    echo "PREV_GUESSES" "$PREV_GUESSES"
+    echo "GUESS_NUMBER" "$GUESS_NUMBER"
+    echo "INCLUDED" "$INCLUDED"
+    echo "EXCLUDED" "$EXCLUDED"
+    echo "LETTERS_IN_POS_TO_EXCLUDE" "$LETTERS_IN_POS_TO_EXCLUDE"
+    echo "SOLVED" "$SOLVED"
+    echo "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+}
+
 resetVars() {
     POSITION_STRING=$(generatePositionString)
     LETTERS_IN_POS_TO_EXCLUDE=$(generateLettersInPosToExlude)
     PREV_GUESSES=""
     GUESS_NUMBER=1
-    POSITION_STRING=""
     INCLUDED=""
     EXCLUDED=""
-    LETTERS_IN_POS_TO_EXCLUDE=""
     SOLVED=1
     cat words.txt > "$DICTIONARY"
     cat words.txt > "$WORDS"
@@ -281,15 +292,26 @@ WORDS=$(mktemp)
 TEMP_DICT=$(mktemp)
 cat words.txt > "$DICTIONARY"
 cat words.txt > "$WORDS"
+END_COUNTER=0
 
 #Reset/create the files used for reporting results
 printf "" > unsolved.out
 printf "" > solved.out
 
+RANDOM_WORDS=$(mktemp)
+sort -R words.txt > "$RANDOM_WORDS"
+
 main() {
 
-    while read -r wordToGuess
+    exec 3<"$RANDOM_WORDS"
+
+    while read -r wordToGuess <&3
     do
+        if test "$END_COUNTER" -eq 1000
+        then 
+            break
+        fi
+
         chompedWordToGuess="$(echo "$wordToGuess" \
             | tr '[:upper:]' '[:lower:]' \
             | sed "s/[[:space:]]//g")"
@@ -305,6 +327,8 @@ main() {
             continue
         fi
 
+        END_COUNTER=$((END_COUNTER + 1))
+
         echo "... GUESSING: $wordToGuess"
         resetVars
 
@@ -316,10 +340,29 @@ main() {
             then
                 break
             fi
+            echo "... guess number: $GUESS_NUMBER"
+            echo "Guessing:" "$GUESS_TO_TRY"
+            if test "$GUESS_TO_TRY" = "$chompedWordToGuess"
+            then
+                SOLVED=0
+                break
+            fi
             getGuessResults "$chompedWordToGuess"
             processResults
             narrowDictionary
-            echo "... guess number: $GUESS_NUMBER"
+            # echo "Show variables?"
+            # read -r
+            # if test "$REPLY" = "y"
+            # then
+                # showVariables
+            # fi
+            # echo "Show dictionary? ($(grep -c '.*' "$DICTIONARY") words)"
+            # read -r
+            # if test "$REPLY" = "y"
+            # then
+                # less "$DICTIONARY"
+            # fi
+            GUESS_NUMBER=$((GUESS_NUMBER + 1))
         done
 
         # Analytics
@@ -333,6 +376,7 @@ main() {
         fi
         echo
         
-    done < words.txt
+    done
+    exec 3<&-
 }
 main
